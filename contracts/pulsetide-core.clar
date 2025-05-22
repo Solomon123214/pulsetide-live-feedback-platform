@@ -147,36 +147,7 @@
     new-count)
 )
 
-;; Update rating aggregates when a new rating is submitted
-(define-private (update-rating-aggregates (event-id uint) (rating-value uint))
-  (let ((aggregates (default-to 
-                     { total-ratings: u0, sum-ratings: u0, count-by-value: (list) }
-                     (map-get? event-rating-aggregates { event-id: event-id })))
-        (total-ratings (+ (get total-ratings aggregates) u1))
-        (sum-ratings (+ (get sum-ratings aggregates) rating-value))
-        (count-by-value (get count-by-value aggregates)))
-    
-    ;; Update the counts for this specific rating value
-    (let ((updated-counts (match (find (lambda (item) (is-eq (get rating item) rating-value)) count-by-value)
-                            rating-item (let ((rating-index (unwrap! (index-of count-by-value rating-item) count-by-value))
-                                               (new-count (+ (get count rating-item) u1))
-                                               (updated-item { rating: rating-value, count: new-count }))
-                                          (replace-at? count-by-value rating-index updated-item))
-                            ;; Rating not found in list, add it
-                            (append count-by-value { rating: rating-value, count: u1 }))))
-      
-      ;; Update the aggregates map
-      (map-set event-rating-aggregates
-        { event-id: event-id }
-        { 
-          total-ratings: total-ratings,
-          sum-ratings: sum-ratings,
-          count-by-value: updated-counts
-        })
-        
-      true)
-  )
-)
+
 
 ;; ==================
 ;; Read-only functions
@@ -300,58 +271,6 @@
       { allowed: false })
     
     (ok true))
-)
-
-;; Submit rating feedback
-(define-public (submit-rating-feedback
-               (event-id uint)
-               (rating-value uint)
-               (anonymous bool))
-  (let ((event-data (unwrap! (map-get? events { event-id: event-id }) ERR-EVENT-NOT-FOUND))
-        (feedback-type "rating"))
-    
-    ;; Validate event is active
-    (asserts! (is-event-active event-id) (if (> block-height (get end-time event-data)) 
-                                             ERR-EVENT-EXPIRED 
-                                             ERR-EVENT-NOT-STARTED))
-    
-    ;; Validate participant is authorized
-    (asserts! (is-authorized-participant event-id tx-sender) ERR-UNAUTHORIZED-PARTICIPANT)
-    
-    ;; Check feedback type is valid for this event
-    (asserts! (is-valid-feedback-type event-id feedback-type) ERR-INVALID-FEEDBACK-TYPE)
-    
-    ;; Validate rating value
-    (asserts! (is-valid-rating-value event-id rating-value) ERR-INVALID-FEEDBACK-VALUE)
-    
-    ;; Check if participant already submitted this feedback type
-    (asserts! (not (has-participant-submitted event-id tx-sender feedback-type)) ERR-DUPLICATE-SUBMISSION)
-    
-    ;; Generate submission ID
-    (let ((submission-id (get-next-submission-id event-id)))
-      
-      ;; Record the submission
-      (map-set feedback-submissions
-        { event-id: event-id, submission-id: submission-id }
-        {
-          participant: tx-sender,
-          feedback-type: feedback-type,
-          rating-value: (some rating-value),
-          reaction-value: none,
-          text-value: none,
-          timestamp: block-height,
-          anonymous: anonymous
-        })
-      
-      ;; Mark participant as having submitted this feedback type
-      (map-set participant-submissions
-        { event-id: event-id, participant: tx-sender, feedback-type: feedback-type }
-        { has-submitted: true })
-        
-      ;; Update aggregates
-      (update-rating-aggregates event-id rating-value)
-      
-      (ok submission-id)))
 )
 
 ;; Submit reaction feedback
