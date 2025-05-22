@@ -1,20 +1,22 @@
-
 [project]
 name = "pulsetide-live-feedback-platform"
 authors = []
+description = ""
 telemetry = false
+requirements = []
+[contracts.pulsetide-core]
+path = "contracts/pulsetide-core.clar"
+depends_on = []
+
+[repl]
+costs_version = 2
+parser_version = 2
+
 [repl.analysis]
 passes = ["check_checker"]
-[repl.analysis.check_checker]
-# If true, inputs are trusted after tx_sender has been checked.
-trusted_sender = false
-# If true, inputs are trusted after contract-caller has been checked.
-trusted_caller = false
-# If true, untrusted data may be passed into a private function without a
-# warning, if it gets checked inside. This check will also propagate up to the
-# caller.
-callee_filter = false
 
-# [contracts.counter]
-# path = "contracts/counter.clar"
-# depends_on = []
+[repl.analysis.check_checker]
+strict = false
+trusted_sender = false
+trusted_caller = false
+callee_filter = false
